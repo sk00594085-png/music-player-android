@@ -4,7 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.lifecycle.ViewModelProvider
+import com.musicplayer.app.MusicPlayerApp
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.musicplayer.app.databinding.FragmentAlbumDetailBinding
@@ -34,7 +34,7 @@ class AlbumDetailFragment : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val albumName = arguments?.getString(ARG_ALBUM) ?: return
-        val viewModel = ViewModelProvider(requireActivity())[MusicViewModel::class.java]
+        val viewModel = (requireActivity().application as MusicPlayerApp).musicViewModel
 
         binding.tvAlbumTitle.text = albumName
 
