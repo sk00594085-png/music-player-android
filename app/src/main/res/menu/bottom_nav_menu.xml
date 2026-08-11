@@ -8,17 +8,17 @@
 
     <item
         android:id="@+id/nav_albums"
-        android:icon="@drawable/ic_album_art_placeholder"
+        android:icon="@drawable/ic_album"
         android:title="@string/albums" />
 
     <item
         android:id="@+id/nav_artists"
-        android:icon="@drawable/ic_music_note"
+        android:icon="@drawable/ic_artist"
         android:title="@string/artists" />
 
     <item
         android:id="@+id/nav_playlists"
-        android:icon="@drawable/ic_music_note"
+        android:icon="@drawable/ic_playlist"
         android:title="@string/playlists" />
 
     <item
