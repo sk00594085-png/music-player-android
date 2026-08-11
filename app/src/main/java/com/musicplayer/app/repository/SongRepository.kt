@@ -8,6 +8,7 @@ import android.os.Build
 import android.provider.MediaStore
 import com.musicplayer.app.model.Folder
 import com.musicplayer.app.model.Song
+import com.musicplayer.app.utils.AppPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -15,6 +16,7 @@ import java.io.File
 /**
  * Queries the Android MediaStore to discover all audio files on the device.
  * Returns a flat list of [Song] objects and a grouped list of [Folder] objects.
+ * Respects exclusion folders and minimum duration from SharedPreferences.
  */
 class SongRepository(private val context: Context) {
 
@@ -22,10 +24,12 @@ class SongRepository(private val context: Context) {
         Uri.parse("content://media/external/audio/albumart")
 
     /**
-     * Scans the MediaStore and returns all audio tracks (>= 10 seconds).
+     * Scans the MediaStore and returns all audio tracks meeting the minimum duration.
      * Runs on the IO dispatcher.
      */
     suspend fun getAllSongs(): List<Song> = withContext(Dispatchers.IO) {
+        val minDurationMs = AppPreferences.getMinDurationSeconds(context) * 1000L
+        val excludedFolders = AppPreferences.getExcludedFolders(context)
         val songs = mutableListOf<Song>()
 
         val collection: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -46,9 +50,8 @@ class SongRepository(private val context: Context) {
             MediaStore.Audio.Media.ALBUM_ID
         )
 
-        // Only return tracks with duration >= 10 s to filter out notification sounds
         val selection = "${MediaStore.Audio.Media.DURATION} >= ?"
-        val selectionArgs = arrayOf("10000")
+        val selectionArgs = arrayOf(minDurationMs.toString())
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
 
         val cursor: Cursor? = context.contentResolver.query(
@@ -69,6 +72,13 @@ class SongRepository(private val context: Context) {
             while (it.moveToNext()) {
                 val path = it.getString(dataCol) ?: continue
                 val file = File(path)
+                val folderPath = file.parentFile?.absolutePath ?: ""
+
+                // Skip excluded folders
+                if (excludedFolders.any { excl -> folderPath == excl || folderPath.startsWith("$excl/") }) {
+                    continue
+                }
+
                 val albumId = it.getLong(albumIdCol)
                 val albumArtUri = ContentUris.withAppendedId(albumArtBaseUri, albumId)
 
@@ -81,7 +91,7 @@ class SongRepository(private val context: Context) {
                         duration = it.getLong(durationCol),
                         path = path,
                         folderName = file.parentFile?.name ?: "Unknown",
-                        folderPath = file.parentFile?.absolutePath ?: "",
+                        folderPath = folderPath,
                         size = it.getLong(sizeCol),
                         dateAdded = it.getLong(dateCol),
                         albumArtUri = albumArtUri
