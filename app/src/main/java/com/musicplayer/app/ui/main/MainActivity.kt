@@ -13,12 +13,12 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.musicplayer.app.MusicPlayerApp
 import com.musicplayer.app.R
 import com.musicplayer.app.databinding.ActivityMainBinding
 import com.musicplayer.app.ui.carmode.CarModeActivity
@@ -30,8 +30,10 @@ import com.musicplayer.app.viewmodel.MusicViewModel
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    lateinit var viewModel: MusicViewModel
-        private set
+
+    // Use the single app-scoped ViewModel so NowPlayingActivity shares the same instance
+    val viewModel: MusicViewModel
+        get() = (application as MusicPlayerApp).musicViewModel
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -50,9 +52,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setSupportActionBar(binding.toolbar)
-
-        viewModel = ViewModelProvider(this)[MusicViewModel::class.java]
-        viewModel.bindService()
 
         setupNavigation()
         requestPermissions()
@@ -162,8 +161,5 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        viewModel.unbindService()
-    }
+    // NOTE: Service binding is managed by MusicPlayerApp — never unbind here.
 }
