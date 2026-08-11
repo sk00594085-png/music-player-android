@@ -4,7 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.lifecycle.ViewModelProvider
+import com.musicplayer.app.MusicPlayerApp
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.musicplayer.app.databinding.FragmentPlaylistDetailBinding
@@ -39,7 +39,7 @@ class PlaylistDetailFragment : BottomSheetDialogFragment() {
         super.onViewCreated(view, savedInstanceState)
         val playlistId   = arguments?.getLong(ARG_ID) ?: return
         val playlistName = arguments?.getString(ARG_NAME) ?: ""
-        val viewModel    = ViewModelProvider(requireActivity())[MusicViewModel::class.java]
+        val viewModel    = (requireActivity().application as MusicPlayerApp).musicViewModel
 
         binding.tvPlaylistTitle.text = playlistName
 
