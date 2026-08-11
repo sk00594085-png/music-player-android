@@ -42,7 +42,7 @@ class EqualizerBottomSheet : BottomSheetDialogFragment() {
                 val min = range[0].toInt()
                 val max = range[1].toInt()
                 val centered = (min + max) / 2
-                val clamped = (centered + levels[i]).coerceIn(min.toShort(), max.toShort())
+                val clamped = (centered + levels[i].toInt()).coerceIn(min, max).toShort()
                 eq.setBandLevel(i.toShort(), clamped)
             }
         }
