@@ -14,6 +14,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.audiofx.Equalizer
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -26,7 +27,10 @@ import androidx.core.app.NotificationManagerCompat
 import com.musicplayer.app.R
 import com.musicplayer.app.model.RepeatMode
 import com.musicplayer.app.model.Song
+import com.musicplayer.app.ui.equalizer.EqualizerBottomSheet
 import com.musicplayer.app.ui.main.MainActivity
+import com.musicplayer.app.utils.AppPreferences
+import com.musicplayer.app.widget.MusicPlayerWidget
 import java.io.IOException
 
 class MusicService : Service(), MediaPlayer.OnPreparedListener,
@@ -35,34 +39,42 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     companion object {
         private const val TAG = "MusicService"
 
-        const val ACTION_PLAY         = "com.musicplayer.ACTION_PLAY"
-        const val ACTION_PAUSE        = "com.musicplayer.ACTION_PAUSE"
-        const val ACTION_TOGGLE_PLAY  = "com.musicplayer.ACTION_TOGGLE_PLAY"
-        const val ACTION_NEXT         = "com.musicplayer.ACTION_NEXT"
-        const val ACTION_PREV         = "com.musicplayer.ACTION_PREV"
-        const val ACTION_SEEK         = "com.musicplayer.ACTION_SEEK"
-        const val ACTION_SET_QUEUE    = "com.musicplayer.ACTION_SET_QUEUE"
-        const val ACTION_STOP         = "com.musicplayer.ACTION_STOP"
-        const val ACTION_CYCLE_REPEAT = "com.musicplayer.ACTION_CYCLE_REPEAT"
-        const val ACTION_TOGGLE_SHUFFLE = "com.musicplayer.ACTION_TOGGLE_SHUFFLE"
+        const val ACTION_PLAY            = "com.musicplayer.ACTION_PLAY"
+        const val ACTION_PAUSE           = "com.musicplayer.ACTION_PAUSE"
+        const val ACTION_TOGGLE_PLAY     = "com.musicplayer.ACTION_TOGGLE_PLAY"
+        const val ACTION_NEXT            = "com.musicplayer.ACTION_NEXT"
+        const val ACTION_PREV            = "com.musicplayer.ACTION_PREV"
+        const val ACTION_SEEK            = "com.musicplayer.ACTION_SEEK"
+        const val ACTION_SET_QUEUE       = "com.musicplayer.ACTION_SET_QUEUE"
+        const val ACTION_STOP            = "com.musicplayer.ACTION_STOP"
+        const val ACTION_CYCLE_REPEAT    = "com.musicplayer.ACTION_CYCLE_REPEAT"
+        const val ACTION_TOGGLE_SHUFFLE  = "com.musicplayer.ACTION_TOGGLE_SHUFFLE"
+        const val ACTION_SET_SPEED       = "com.musicplayer.ACTION_SET_SPEED"
 
         const val EXTRA_SONG_INDEX    = "extra_song_index"
         const val EXTRA_SEEK_POSITION = "extra_seek_position"
         const val EXTRA_QUEUE         = "extra_queue"
+        const val EXTRA_SPEED         = "extra_speed"
 
         const val CHANNEL_ID      = "music_player_channel"
         const val NOTIFICATION_ID = 101
 
-        const val BROADCAST_STATE    = "com.musicplayer.BROADCAST_STATE"
-        const val EXTRA_IS_PLAYING   = "extra_is_playing"
+        const val BROADCAST_STATE     = "com.musicplayer.BROADCAST_STATE"
+        const val EXTRA_IS_PLAYING    = "extra_is_playing"
         const val EXTRA_CURRENT_INDEX = "extra_current_index"
-        const val EXTRA_REPEAT_MODE  = "extra_repeat_mode"
-        const val EXTRA_IS_SHUFFLE   = "extra_is_shuffle"
-        const val EXTRA_DURATION     = "extra_duration"
-        const val EXTRA_POSITION     = "extra_position"
+        const val EXTRA_REPEAT_MODE   = "extra_repeat_mode"
+        const val EXTRA_IS_SHUFFLE    = "extra_is_shuffle"
+        const val EXTRA_DURATION      = "extra_duration"
+        const val EXTRA_POSITION      = "extra_position"
+        const val EXTRA_PLAYBACK_SPEED = "extra_playback_speed"
     }
 
     private var mediaPlayer: MediaPlayer? = null
+    // Second player for crossfade
+    private var crossfadePlayer: MediaPlayer? = null
+    private var crossfadeRunnable: Runnable? = null
+    private val crossfadeHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     private var queue: ArrayList<Song> = ArrayList()
     private var shuffleQueue: ArrayList<Song> = ArrayList()
     private var currentIndex: Int = -1
@@ -70,12 +82,14 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     private var shuffleEnabled: Boolean = false
     private var isPrepared: Boolean = false
     private var pendingPlay: Boolean = false
+    private var playbackSpeed: Float = 1.0f
 
     private lateinit var audioManager: AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hasAudioFocus: Boolean = false
 
     private lateinit var mediaSession: MediaSessionCompat
+    private var equalizer: Equalizer? = null
 
     private val binder = MusicBinder()
     private var btReceiverRegistered = false
@@ -96,6 +110,7 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     override fun onCreate() {
         super.onCreate()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        playbackSpeed = AppPreferences.getPlaybackSpeed(this)
         createNotificationChannel()
         setupMediaSession()
         registerBtReceiver()
@@ -119,6 +134,10 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
                 ACTION_STOP        -> stopSelf()
                 ACTION_CYCLE_REPEAT  -> cycleRepeatMode()
                 ACTION_TOGGLE_SHUFFLE -> toggleShuffle()
+                ACTION_SET_SPEED   -> {
+                    val speed = intent.getFloatExtra(EXTRA_SPEED, 1.0f)
+                    setPlaybackSpeed(speed)
+                }
             }
         }
         return START_STICKY
@@ -127,7 +146,12 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        saveLastPosition()
         abandonAudioFocus()
+        equalizer?.release()
+        equalizer = null
+        crossfadePlayer?.release()
+        crossfadePlayer = null
         mediaPlayer?.release()
         mediaPlayer = null
         mediaSession.release()
@@ -139,6 +163,7 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        saveLastPosition()
         stopSelf()
         super.onTaskRemoved(rootIntent)
     }
@@ -157,6 +182,7 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     fun isShuffleEnabled(): Boolean = shuffleEnabled
     fun getQueue(): List<Song> = effectiveQueue().toList()
     fun getCurrentIndex(): Int = currentIndex
+    fun getPlaybackSpeed(): Float = playbackSpeed
 
     // ── Playback control ──────────────────────────────────────────────────
 
@@ -175,6 +201,7 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         if (!isPrepared) return
         if (requestAudioFocus()) {
             mediaPlayer?.start()
+            applyPlaybackSpeed()
             updateNotification()
             broadcastState()
             updateMediaSessionState()
@@ -187,18 +214,24 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         updateNotification()
         broadcastState()
         updateMediaSessionState()
+        saveLastPosition()
     }
 
     fun playNext() {
         val q = effectiveQueue()
         if (q.isEmpty()) return
+        val crossfadeSec = AppPreferences.getCrossfadeSeconds(this)
         currentIndex = when {
             repeatMode == RepeatMode.ONE  -> currentIndex
             currentIndex < q.size - 1    -> currentIndex + 1
             repeatMode == RepeatMode.ALL  -> 0
             else -> return
         }
-        prepareSong(q[currentIndex])
+        if (crossfadeSec > 0 && isPrepared) {
+            startCrossfade(q[currentIndex], crossfadeSec)
+        } else {
+            prepareSong(q[currentIndex])
+        }
     }
 
     fun playPrevious() {
@@ -238,6 +271,109 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         broadcastState()
     }
 
+    fun setPlaybackSpeed(speed: Float) {
+        playbackSpeed = speed
+        AppPreferences.setPlaybackSpeed(this, speed)
+        applyPlaybackSpeed()
+        broadcastState()
+    }
+
+    private fun applyPlaybackSpeed() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                mediaPlayer?.let { mp ->
+                    if (mp.isPlaying || isPrepared) {
+                        val params = mp.playbackParams
+                        params.speed = playbackSpeed
+                        mp.playbackParams = params
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    // ── Crossfade ─────────────────────────────────────────────────────────
+
+    private fun startCrossfade(nextSong: Song, crossfadeSec: Int) {
+        crossfadeRunnable?.let { crossfadeHandler.removeCallbacks(it) }
+
+        val next = MediaPlayer()
+        crossfadePlayer = next
+        try {
+            next.setWakeMode(applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
+            next.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+            )
+            next.setDataSource(nextSong.path)
+            next.prepare()
+            next.setVolume(0f, 0f)
+            next.start()
+            applySpeedToPlayer(next)
+
+            val steps = crossfadeSec * 10
+            val stepMs = 100L
+            var step = 0
+
+            val runnable = object : Runnable {
+                override fun run() {
+                    step++
+                    val vol = step.toFloat() / steps
+                    next.setVolume(vol, vol)
+                    mediaPlayer?.setVolume(1f - vol, 1f - vol)
+                    if (step < steps) {
+                        crossfadeHandler.postDelayed(this, stepMs)
+                    } else {
+                        mediaPlayer?.stop()
+                        mediaPlayer?.release()
+                        mediaPlayer = next
+                        crossfadePlayer = null
+                        attachPlayerListeners(mediaPlayer!!)
+                        isPrepared = true
+                        broadcastState()
+                        updateNotification()
+                    }
+                }
+            }
+            crossfadeRunnable = runnable
+            crossfadeHandler.postDelayed(runnable, stepMs)
+        } catch (e: Exception) {
+            Log.e(TAG, "Crossfade failed: ${e.message}")
+            next.release()
+            crossfadePlayer = null
+            prepareSong(nextSong)
+        }
+        broadcastState()
+    }
+
+    private fun applySpeedToPlayer(player: MediaPlayer) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val params = player.playbackParams
+                params.speed = playbackSpeed
+                player.playbackParams = params
+            } catch (_: Exception) {}
+        }
+    }
+
+    // ── Equalizer ────────────────────────────────────────────────────────
+
+    private fun setupEqualizer(audioSessionId: Int) {
+        try {
+            equalizer?.release()
+            val eq = Equalizer(0, audioSessionId)
+            eq.enabled = AppPreferences.isEqEnabled(this)
+            equalizer = eq
+            EqualizerBottomSheet.equalizer = eq
+            val preset = AppPreferences.getEqPreset(this)
+            EqualizerBottomSheet.applyPreset(preset)
+        } catch (e: Exception) {
+            Log.e(TAG, "Equalizer setup failed: ${e.message}")
+        }
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────
 
     private fun effectiveQueue(): ArrayList<Song> =
@@ -261,9 +397,7 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .build()
             )
-            player.setOnPreparedListener(this)
-            player.setOnCompletionListener(this)
-            player.setOnErrorListener(this)
+            attachPlayerListeners(player)
             player.setDataSource(song.path)
             player.prepareAsync()
         } catch (e: IOException) {
@@ -273,8 +407,16 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         broadcastState()
     }
 
+    private fun attachPlayerListeners(player: MediaPlayer) {
+        player.setOnPreparedListener(this)
+        player.setOnCompletionListener(this)
+        player.setOnErrorListener(this)
+    }
+
     override fun onPrepared(mp: MediaPlayer) {
         isPrepared = true
+        setupEqualizer(mp.audioSessionId)
+        applyPlaybackSpeed()
         if (pendingPlay) {
             pendingPlay = false
             if (requestAudioFocus()) mp.start()
@@ -282,9 +424,11 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         updateNotification()
         broadcastState()
         updateMediaSessionState()
+        updateWidget()
     }
 
     override fun onCompletion(mp: MediaPlayer) {
+        saveLastPosition()
         when (repeatMode) {
             RepeatMode.ONE -> { mp.seekTo(0); mp.start() }
             RepeatMode.ALL -> playNext()
@@ -304,6 +448,15 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         Log.e(TAG, "MediaPlayer error what=$what extra=$extra")
         isPrepared = false
         return false
+    }
+
+    private fun saveLastPosition() {
+        val idx = currentIndex
+        val pos = getCurrentPosition()
+        if (idx >= 0) {
+            AppPreferences.setLastSongIndex(this, idx)
+            AppPreferences.setLastSongPosition(this, pos)
+        }
     }
 
     // ── Audio Focus ───────────────────────────────────────────────────────
@@ -407,8 +560,20 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
                     PlaybackStateCompat.ACTION_SEEK_TO or
                     PlaybackStateCompat.ACTION_STOP
                 )
-                .setState(state, getCurrentPosition().toLong(), 1f)
+                .setState(state, getCurrentPosition().toLong(), playbackSpeed)
                 .build()
+        )
+    }
+
+    // ── Widget ────────────────────────────────────────────────────────────
+
+    private fun updateWidget() {
+        val song = getCurrentSong()
+        MusicPlayerWidget.updateWidget(
+            this,
+            song?.displayTitle ?: "Music Player",
+            song?.displayArtist ?: "",
+            isPlaying()
         )
     }
 
@@ -416,14 +581,16 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
 
     fun broadcastState() {
         val intent = Intent(BROADCAST_STATE).apply {
-            putExtra(EXTRA_IS_PLAYING,    isPlaying())
-            putExtra(EXTRA_CURRENT_INDEX, currentIndex)
-            putExtra(EXTRA_REPEAT_MODE,   repeatMode.name)
-            putExtra(EXTRA_IS_SHUFFLE,    shuffleEnabled)
-            putExtra(EXTRA_DURATION,      getDuration())
-            putExtra(EXTRA_POSITION,      getCurrentPosition())
+            putExtra(EXTRA_IS_PLAYING,     isPlaying())
+            putExtra(EXTRA_CURRENT_INDEX,  currentIndex)
+            putExtra(EXTRA_REPEAT_MODE,    repeatMode.name)
+            putExtra(EXTRA_IS_SHUFFLE,     shuffleEnabled)
+            putExtra(EXTRA_DURATION,       getDuration())
+            putExtra(EXTRA_POSITION,       getCurrentPosition())
+            putExtra(EXTRA_PLAYBACK_SPEED, playbackSpeed)
         }
         sendBroadcast(intent)
+        updateWidget()
     }
 
     // ── Notification ──────────────────────────────────────────────────────
