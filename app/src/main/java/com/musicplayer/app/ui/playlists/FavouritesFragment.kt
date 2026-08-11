@@ -15,6 +15,7 @@ class FavouritesFragment : BottomSheetDialogFragment() {
 
     private var _binding: FragmentPlaylistDetailBinding? = null
     private val binding get() = _binding!!
+    private lateinit var adapter: SongAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -27,9 +28,9 @@ class FavouritesFragment : BottomSheetDialogFragment() {
         super.onViewCreated(view, savedInstanceState)
         val viewModel = ViewModelProvider(requireActivity())[MusicViewModel::class.java]
 
-        binding.tvPlaylistTitle.text = "❤️ Favourites"
+        binding.tvPlaylistTitle.text = "Favourites"
 
-        val adapter = SongAdapter { index ->
+        adapter = SongAdapter { index ->
             val list = adapter.currentList
             if (list.isNotEmpty()) {
                 viewModel.playSongsAt(list, index)
