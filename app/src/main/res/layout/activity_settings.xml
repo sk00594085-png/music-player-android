@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorSurface" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Playback Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_section_playback"
+                android:textAppearance="?attr/textAppearanceLabelLarge"
+                android:textColor="?attr/colorPrimary"
+                android:paddingBottom="8dp"
+                android:paddingTop="8dp" />
+
+            <!-- Crossfade -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/crossfade_duration"
+                android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <SeekBar
+                    android:id="@+id/seek_crossfade"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="10"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/tv_crossfade_value"
+                    android:layout_width="48dp"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?attr/textAppearanceLabelSmall" />
+
+            </LinearLayout>
+
+            <!-- Auto-play Bluetooth -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/auto_play_bluetooth"
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switch_auto_play_bt"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
+
+            <!-- Library Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_section_library"
+                android:textAppearance="?attr/textAppearanceLabelLarge"
+                android:textColor="?attr/colorPrimary"
+                android:paddingBottom="8dp"
+                android:paddingTop="16dp" />
+
+            <!-- Min Duration -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/min_track_duration"
+                android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <SeekBar
+                    android:id="@+id/seek_min_duration"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="120"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/tv_min_duration_value"
+                    android:layout_width="48dp"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?attr/textAppearanceLabelSmall" />
+
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_rescan_library"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/rescan_library" />
+
+            <!-- Appearance Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_section_appearance"
+                android:textAppearance="?attr/textAppearanceLabelLarge"
+                android:textColor="?attr/colorPrimary"
+                android:paddingBottom="8dp"
+                android:paddingTop="16dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/theme"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:paddingBottom="4dp" />
+
+            <RadioGroup
+                android:id="@+id/rg_theme"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rb_theme_light"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_light" />
+
+                <RadioButton
+                    android:id="@+id/rb_theme_dark"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_dark" />
+
+                <RadioButton
+                    android:id="@+id/rb_theme_system"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_system" />
+
+            </RadioGroup>
+
+            <!-- Backup Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_section_backup"
+                android:textAppearance="?attr/textAppearanceLabelLarge"
+                android:textColor="?attr/colorPrimary"
+                android:paddingBottom="8dp"
+                android:paddingTop="16dp" />
+
+            <Button
+                android:id="@+id/btn_export_playlists"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/export_playlists" />
+
+            <Button
+                android:id="@+id/btn_import_playlists"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/import_playlists" />
+
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>
