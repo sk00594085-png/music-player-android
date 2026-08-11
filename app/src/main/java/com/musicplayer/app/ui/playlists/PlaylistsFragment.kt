@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
+import com.musicplayer.app.MusicPlayerApp
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.musicplayer.app.R
 import com.musicplayer.app.databinding.FragmentPlaylistsBinding
@@ -28,7 +28,7 @@ class PlaylistsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel = ViewModelProvider(requireActivity())[MusicViewModel::class.java]
+        viewModel = (requireActivity().application as MusicPlayerApp).musicViewModel
 
         val adapter = PlaylistSectionAdapter(
             onPlaylistClick = { playlist ->
