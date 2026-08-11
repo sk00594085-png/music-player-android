@@ -13,7 +13,8 @@ import com.musicplayer.app.databinding.ItemSongBinding
 import com.musicplayer.app.model.Song
 
 class SongAdapter(
-    private val onSongClick: (Int) -> Unit
+    private val onSongClick: (Int) -> Unit,
+    private val onSongLongClick: ((Song) -> Unit)? = null
 ) : ListAdapter<Song, SongAdapter.SongViewHolder>(DIFF) {
 
     private var activeSongId: Long = -1L
@@ -60,6 +61,10 @@ class SongAdapter(
                 if (song.id == activeId) android.view.View.VISIBLE else android.view.View.GONE
 
             binding.root.setOnClickListener { onSongClick(position) }
+            binding.root.setOnLongClickListener {
+                onSongLongClick?.invoke(song)
+                true
+            }
         }
     }
 
