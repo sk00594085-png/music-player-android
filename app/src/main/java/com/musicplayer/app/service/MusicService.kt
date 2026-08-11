@@ -29,53 +29,38 @@ import com.musicplayer.app.model.Song
 import com.musicplayer.app.ui.main.MainActivity
 import java.io.IOException
 
-/**
- * Foreground service that drives audio playback.
- *
- * Responsibilities:
- * - MediaPlayer lifecycle (prepare, play, pause, seek, next, previous)
- * - AudioFocus management (pauses on call, ducks on notification)
- * - Bluetooth SCO / A2DP awareness (auto-pause when headset disconnects)
- * - Foreground notification with transport controls
- * - MediaSession for lock-screen / Bluetooth controls
- */
 class MusicService : Service(), MediaPlayer.OnPreparedListener,
     MediaPlayer.OnCompletionListener, MediaPlayer.OnErrorListener {
 
     companion object {
         private const val TAG = "MusicService"
 
-        const val ACTION_PLAY = "com.musicplayer.ACTION_PLAY"
-        const val ACTION_PAUSE = "com.musicplayer.ACTION_PAUSE"
-        const val ACTION_TOGGLE_PLAY = "com.musicplayer.ACTION_TOGGLE_PLAY"
-        const val ACTION_NEXT = "com.musicplayer.ACTION_NEXT"
-        const val ACTION_PREV = "com.musicplayer.ACTION_PREV"
-        const val ACTION_SEEK = "com.musicplayer.ACTION_SEEK"
-        const val ACTION_SET_QUEUE = "com.musicplayer.ACTION_SET_QUEUE"
-        const val ACTION_STOP = "com.musicplayer.ACTION_STOP"
+        const val ACTION_PLAY         = "com.musicplayer.ACTION_PLAY"
+        const val ACTION_PAUSE        = "com.musicplayer.ACTION_PAUSE"
+        const val ACTION_TOGGLE_PLAY  = "com.musicplayer.ACTION_TOGGLE_PLAY"
+        const val ACTION_NEXT         = "com.musicplayer.ACTION_NEXT"
+        const val ACTION_PREV         = "com.musicplayer.ACTION_PREV"
+        const val ACTION_SEEK         = "com.musicplayer.ACTION_SEEK"
+        const val ACTION_SET_QUEUE    = "com.musicplayer.ACTION_SET_QUEUE"
+        const val ACTION_STOP         = "com.musicplayer.ACTION_STOP"
         const val ACTION_CYCLE_REPEAT = "com.musicplayer.ACTION_CYCLE_REPEAT"
         const val ACTION_TOGGLE_SHUFFLE = "com.musicplayer.ACTION_TOGGLE_SHUFFLE"
 
-        const val EXTRA_SONG_INDEX = "extra_song_index"
+        const val EXTRA_SONG_INDEX    = "extra_song_index"
         const val EXTRA_SEEK_POSITION = "extra_seek_position"
-        const val EXTRA_QUEUE = "extra_queue"
+        const val EXTRA_QUEUE         = "extra_queue"
 
-        const val CHANNEL_ID = "music_player_channel"
+        const val CHANNEL_ID      = "music_player_channel"
         const val NOTIFICATION_ID = 101
 
-        // Broadcast sent to UI so bound + unbound clients can observe state
-        const val BROADCAST_STATE = "com.musicplayer.BROADCAST_STATE"
-        const val EXTRA_IS_PLAYING = "extra_is_playing"
+        const val BROADCAST_STATE    = "com.musicplayer.BROADCAST_STATE"
+        const val EXTRA_IS_PLAYING   = "extra_is_playing"
         const val EXTRA_CURRENT_INDEX = "extra_current_index"
-        const val EXTRA_REPEAT_MODE = "extra_repeat_mode"
-        const val EXTRA_IS_SHUFFLE = "extra_is_shuffle"
-        const val EXTRA_DURATION = "extra_duration"
-        const val EXTRA_POSITION = "extra_position"
+        const val EXTRA_REPEAT_MODE  = "extra_repeat_mode"
+        const val EXTRA_IS_SHUFFLE   = "extra_is_shuffle"
+        const val EXTRA_DURATION     = "extra_duration"
+        const val EXTRA_POSITION     = "extra_position"
     }
-
-    // ──────────────────────────────────────────────────────────────────────
-    // State
-    // ──────────────────────────────────────────────────────────────────────
 
     private var mediaPlayer: MediaPlayer? = null
     private var queue: ArrayList<Song> = ArrayList()
@@ -84,7 +69,7 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     private var repeatMode: RepeatMode = RepeatMode.NONE
     private var shuffleEnabled: Boolean = false
     private var isPrepared: Boolean = false
-    private var pendingPlay: Boolean = false   // play as soon as prepared
+    private var pendingPlay: Boolean = false
 
     private lateinit var audioManager: AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -93,10 +78,7 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     private lateinit var mediaSession: MediaSessionCompat
 
     private val binder = MusicBinder()
-
-    // ──────────────────────────────────────────────────────────────────────
-    // Bluetooth receiver – pause when audio output is disconnected
-    // ──────────────────────────────────────────────────────────────────────
+    private var btReceiverRegistered = false
 
     private val bluetoothReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
@@ -109,9 +91,7 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Lifecycle
-    // ──────────────────────────────────────────────────────────────────────
+    // ── Lifecycle ─────────────────────────────────────────────────────────
 
     override fun onCreate() {
         super.onCreate()
@@ -122,29 +102,24 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent == null) return START_STICKY
-
-        when (intent.action) {
-            ACTION_SET_QUEUE -> {
-                @Suppress("UNCHECKED_CAST")
-                val songs = intent.getSerializableExtra(EXTRA_QUEUE) as? ArrayList<Song>
-                val index = intent.getIntExtra(EXTRA_SONG_INDEX, 0)
-                if (songs != null) {
-                    setQueueAndPlay(songs, index)
+        if (intent != null) {
+            when (intent.action) {
+                ACTION_SET_QUEUE -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val songs = intent.getSerializableExtra(EXTRA_QUEUE) as? ArrayList<Song>
+                    val index = intent.getIntExtra(EXTRA_SONG_INDEX, 0)
+                    if (songs != null) setQueueAndPlay(songs, index)
                 }
+                ACTION_TOGGLE_PLAY -> togglePlayPause()
+                ACTION_PLAY        -> resumePlayback()
+                ACTION_PAUSE       -> pausePlayback()
+                ACTION_NEXT        -> playNext()
+                ACTION_PREV        -> playPrevious()
+                ACTION_SEEK        -> seekTo(intent.getIntExtra(EXTRA_SEEK_POSITION, 0))
+                ACTION_STOP        -> stopSelf()
+                ACTION_CYCLE_REPEAT  -> cycleRepeatMode()
+                ACTION_TOGGLE_SHUFFLE -> toggleShuffle()
             }
-            ACTION_TOGGLE_PLAY -> togglePlayPause()
-            ACTION_PLAY -> resumePlayback()
-            ACTION_PAUSE -> pausePlayback()
-            ACTION_NEXT -> playNext()
-            ACTION_PREV -> playPrevious()
-            ACTION_SEEK -> {
-                val pos = intent.getIntExtra(EXTRA_SEEK_POSITION, 0)
-                seekTo(pos)
-            }
-            ACTION_STOP -> stopSelf()
-            ACTION_CYCLE_REPEAT -> cycleRepeatMode()
-            ACTION_TOGGLE_SHUFFLE -> toggleShuffle()
         }
         return START_STICKY
     }
@@ -156,7 +131,10 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         mediaPlayer?.release()
         mediaPlayer = null
         mediaSession.release()
-        unregisterReceiver(bluetoothReceiver)
+        if (btReceiverRegistered) {
+            try { unregisterReceiver(bluetoothReceiver) } catch (_: Exception) {}
+            btReceiverRegistered = false
+        }
         super.onDestroy()
     }
 
@@ -165,38 +143,27 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         super.onTaskRemoved(rootIntent)
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Public API (used by bound activities/viewmodels)
-    // ──────────────────────────────────────────────────────────────────────
+    // ── Public API ────────────────────────────────────────────────────────
 
     inner class MusicBinder : Binder() {
         fun getService(): MusicService = this@MusicService
     }
 
     fun getCurrentSong(): Song? = effectiveQueue().getOrNull(currentIndex)
-
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying == true
-
     fun getCurrentPosition(): Int = if (isPrepared) mediaPlayer?.currentPosition ?: 0 else 0
-
     fun getDuration(): Int = if (isPrepared) mediaPlayer?.duration ?: 0 else 0
-
     fun getRepeatMode(): RepeatMode = repeatMode
-
     fun isShuffleEnabled(): Boolean = shuffleEnabled
-
     fun getQueue(): List<Song> = effectiveQueue().toList()
-
     fun getCurrentIndex(): Int = currentIndex
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Playback control
-    // ──────────────────────────────────────────────────────────────────────
+    // ── Playback control ──────────────────────────────────────────────────
 
     fun setQueueAndPlay(songs: ArrayList<Song>, index: Int) {
         queue = songs
         buildShuffleQueue()
-        currentIndex = index
+        currentIndex = index.coerceIn(0, songs.size - 1)
         prepareSong(effectiveQueue()[currentIndex])
     }
 
@@ -226,10 +193,10 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         val q = effectiveQueue()
         if (q.isEmpty()) return
         currentIndex = when {
-            repeatMode == RepeatMode.ONE -> currentIndex       // stay on same
-            currentIndex < q.size - 1 -> currentIndex + 1
-            repeatMode == RepeatMode.ALL -> 0
-            else -> return                                      // end of queue, stop
+            repeatMode == RepeatMode.ONE  -> currentIndex
+            currentIndex < q.size - 1    -> currentIndex + 1
+            repeatMode == RepeatMode.ALL  -> 0
+            else -> return
         }
         prepareSong(q[currentIndex])
     }
@@ -237,13 +204,9 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     fun playPrevious() {
         val q = effectiveQueue()
         if (q.isEmpty()) return
-        // If more than 3 s have passed, restart current track
-        if (getCurrentPosition() > 3000) {
-            seekTo(0)
-            return
-        }
+        if (getCurrentPosition() > 3000) { seekTo(0); return }
         currentIndex = when {
-            currentIndex > 0 -> currentIndex - 1
+            currentIndex > 0             -> currentIndex - 1
             repeatMode == RepeatMode.ALL -> q.size - 1
             else -> 0
         }
@@ -260,8 +223,8 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     fun cycleRepeatMode() {
         repeatMode = when (repeatMode) {
             RepeatMode.NONE -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.NONE
+            RepeatMode.ALL  -> RepeatMode.ONE
+            RepeatMode.ONE  -> RepeatMode.NONE
         }
         broadcastState()
         updateNotification()
@@ -270,15 +233,12 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     fun toggleShuffle() {
         shuffleEnabled = !shuffleEnabled
         buildShuffleQueue()
-        // Re-map currentIndex to the new effective queue
         val currentSong = getCurrentSong()
         currentIndex = effectiveQueue().indexOf(currentSong).takeIf { it >= 0 } ?: 0
         broadcastState()
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Internal helpers
-    // ──────────────────────────────────────────────────────────────────────
+    // ── Internal helpers ──────────────────────────────────────────────────
 
     private fun effectiveQueue(): ArrayList<Song> =
         if (shuffleEnabled) shuffleQueue else queue
@@ -291,71 +251,47 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         isPrepared = false
         pendingPlay = true
 
-        mediaPlayer?.reset() ?: run {
-            mediaPlayer = MediaPlayer().apply {
-                setWakeMode(applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .build()
-                )
-                setOnPreparedListener(this@MusicService)
-                setOnCompletionListener(this@MusicService)
-                setOnErrorListener(this@MusicService)
-            }
-        }
-
+        val player = mediaPlayer ?: MediaPlayer().also { mediaPlayer = it }
         try {
-            mediaPlayer!!.apply {
-                reset()
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .build()
-                )
-                setOnPreparedListener(this@MusicService)
-                setOnCompletionListener(this@MusicService)
-                setOnErrorListener(this@MusicService)
-                setDataSource(song.path)
-                prepareAsync()
-            }
+            player.reset()
+            player.setWakeMode(applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+            )
+            player.setOnPreparedListener(this)
+            player.setOnCompletionListener(this)
+            player.setOnErrorListener(this)
+            player.setDataSource(song.path)
+            player.prepareAsync()
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to set data source: ${e.message}")
+            Log.e(TAG, "prepareSong failed: ${e.message}")
+            pendingPlay = false
         }
-
         broadcastState()
     }
 
-    // MediaPlayer.OnPreparedListener
     override fun onPrepared(mp: MediaPlayer) {
         isPrepared = true
         if (pendingPlay) {
             pendingPlay = false
-            if (requestAudioFocus()) {
-                mp.start()
-            }
+            if (requestAudioFocus()) mp.start()
         }
         updateNotification()
         broadcastState()
         updateMediaSessionState()
     }
 
-    // MediaPlayer.OnCompletionListener
     override fun onCompletion(mp: MediaPlayer) {
         when (repeatMode) {
-            RepeatMode.ONE -> {
-                mp.seekTo(0)
-                mp.start()
-            }
+            RepeatMode.ONE -> { mp.seekTo(0); mp.start() }
             RepeatMode.ALL -> playNext()
             RepeatMode.NONE -> {
-                val q = effectiveQueue()
-                if (currentIndex < q.size - 1) {
+                if (currentIndex < effectiveQueue().size - 1) {
                     playNext()
                 } else {
-                    // End of queue – stay on last song but paused
                     mp.seekTo(0)
                     broadcastState()
                     updateNotification()
@@ -364,19 +300,16 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
-    // MediaPlayer.OnErrorListener
     override fun onError(mp: MediaPlayer, what: Int, extra: Int): Boolean {
-        Log.e(TAG, "MediaPlayer error: what=$what extra=$extra")
+        Log.e(TAG, "MediaPlayer error what=$what extra=$extra")
         isPrepared = false
         return false
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Audio Focus
-    // ──────────────────────────────────────────────────────────────────────
+    // ── Audio Focus ───────────────────────────────────────────────────────
 
-    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
-        when (focusChange) {
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { change ->
+        when (change) {
             AudioManager.AUDIOFOCUS_GAIN -> {
                 hasAudioFocus = true
                 mediaPlayer?.setVolume(1f, 1f)
@@ -432,31 +365,30 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
         hasAudioFocus = false
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Bluetooth / Becoming Noisy receiver
-    // ──────────────────────────────────────────────────────────────────────
+    // ── Bluetooth receiver ────────────────────────────────────────────────
 
     private fun registerBtReceiver() {
         val filter = IntentFilter().apply {
             addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
         }
-        registerReceiver(bluetoothReceiver, filter)
+        try {
+            registerReceiver(bluetoothReceiver, filter)
+            btReceiverRegistered = true
+        } catch (_: Exception) {}
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // MediaSession
-    // ──────────────────────────────────────────────────────────────────────
+    // ── MediaSession ──────────────────────────────────────────────────────
 
     private fun setupMediaSession() {
         mediaSession = MediaSessionCompat(this, TAG).apply {
             setCallback(object : MediaSessionCompat.Callback() {
-                override fun onPlay() = resumePlayback()
-                override fun onPause() = pausePlayback()
-                override fun onSkipToNext() = playNext()
-                override fun onSkipToPrevious() = playPrevious()
-                override fun onSeekTo(pos: Long) = seekTo(pos.toInt())
-                override fun onStop() = stopSelf()
+                override fun onPlay()              = resumePlayback()
+                override fun onPause()             = pausePlayback()
+                override fun onSkipToNext()        = playNext()
+                override fun onSkipToPrevious()    = playPrevious()
+                override fun onSeekTo(pos: Long)   = seekTo(pos.toInt())
+                override fun onStop()              = stopSelf()
             })
             isActive = true
         }
@@ -465,61 +397,52 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
     private fun updateMediaSessionState() {
         val state = if (isPlaying()) PlaybackStateCompat.STATE_PLAYING
         else PlaybackStateCompat.STATE_PAUSED
-
         mediaSession.setPlaybackState(
             PlaybackStateCompat.Builder()
                 .setActions(
                     PlaybackStateCompat.ACTION_PLAY or
-                            PlaybackStateCompat.ACTION_PAUSE or
-                            PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                            PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-                            PlaybackStateCompat.ACTION_SEEK_TO or
-                            PlaybackStateCompat.ACTION_STOP
+                    PlaybackStateCompat.ACTION_PAUSE or
+                    PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                    PlaybackStateCompat.ACTION_SEEK_TO or
+                    PlaybackStateCompat.ACTION_STOP
                 )
                 .setState(state, getCurrentPosition().toLong(), 1f)
                 .build()
         )
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Broadcast state to UI
-    // ──────────────────────────────────────────────────────────────────────
+    // ── Broadcast ─────────────────────────────────────────────────────────
 
     fun broadcastState() {
         val intent = Intent(BROADCAST_STATE).apply {
-            putExtra(EXTRA_IS_PLAYING, isPlaying())
+            putExtra(EXTRA_IS_PLAYING,    isPlaying())
             putExtra(EXTRA_CURRENT_INDEX, currentIndex)
-            putExtra(EXTRA_REPEAT_MODE, repeatMode.name)
-            putExtra(EXTRA_IS_SHUFFLE, shuffleEnabled)
-            putExtra(EXTRA_DURATION, getDuration())
-            putExtra(EXTRA_POSITION, getCurrentPosition())
+            putExtra(EXTRA_REPEAT_MODE,   repeatMode.name)
+            putExtra(EXTRA_IS_SHUFFLE,    shuffleEnabled)
+            putExtra(EXTRA_DURATION,      getDuration())
+            putExtra(EXTRA_POSITION,      getCurrentPosition())
         }
         sendBroadcast(intent)
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Notification
-    // ──────────────────────────────────────────────────────────────────────
+    // ── Notification ──────────────────────────────────────────────────────
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Music Player",
-                NotificationManager.IMPORTANCE_LOW
+                CHANNEL_ID, "Music Player", NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Music playback controls"
                 setShowBadge(false)
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(channel)
         }
     }
 
     private fun buildNotification(): Notification {
         val song = getCurrentSong()
-        val contentTitle = song?.displayTitle ?: "Music Player"
-        val contentText = song?.displayArtist ?: "No track"
 
         val contentIntent = PendingIntent.getActivity(
             this, 0,
@@ -527,17 +450,17 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        fun actionPendingIntent(action: String, reqCode: Int): PendingIntent =
+        fun actionPI(action: String, req: Int): PendingIntent =
             PendingIntent.getService(
-                this, reqCode,
+                this, req,
                 Intent(this, MusicService::class.java).apply { this.action = action },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_music)
-            .setContentTitle(contentTitle)
-            .setContentText(contentText)
+            .setContentTitle(song?.displayTitle ?: "Music Player")
+            .setContentText(song?.displayArtist ?: "")
             .setContentIntent(contentIntent)
             .setOngoing(isPlaying())
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -546,19 +469,13 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener,
                     .setMediaSession(mediaSession.sessionToken)
                     .setShowActionsInCompactView(0, 1, 2)
             )
-            .addAction(
-                R.drawable.ic_skip_previous, "Previous",
-                actionPendingIntent(ACTION_PREV, 1)
-            )
+            .addAction(R.drawable.ic_skip_previous, "Previous", actionPI(ACTION_PREV, 1))
             .addAction(
                 if (isPlaying()) R.drawable.ic_pause else R.drawable.ic_play,
                 if (isPlaying()) "Pause" else "Play",
-                actionPendingIntent(ACTION_TOGGLE_PLAY, 2)
+                actionPI(ACTION_TOGGLE_PLAY, 2)
             )
-            .addAction(
-                R.drawable.ic_skip_next, "Next",
-                actionPendingIntent(ACTION_NEXT, 3)
-            )
+            .addAction(R.drawable.ic_skip_next, "Next", actionPI(ACTION_NEXT, 3))
             .build()
     }
 
