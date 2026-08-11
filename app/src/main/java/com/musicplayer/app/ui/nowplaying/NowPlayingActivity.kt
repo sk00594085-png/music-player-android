@@ -22,6 +22,7 @@ import com.musicplayer.app.R
 import com.musicplayer.app.databinding.ActivityNowPlayingBinding
 import com.musicplayer.app.model.RepeatMode
 import com.musicplayer.app.service.MusicService
+import com.musicplayer.app.ui.equalizer.EqualizerBottomSheet
 import com.musicplayer.app.viewmodel.MusicViewModel
 
 class NowPlayingActivity : AppCompatActivity() {
@@ -31,6 +32,8 @@ class NowPlayingActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var seeking = false
     private var receiverRegistered = false
+
+    private val speedOptions = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
 
     private val positionRunnable = object : Runnable {
         override fun run() {
@@ -50,11 +53,11 @@ class NowPlayingActivity : AppCompatActivity() {
         binding = ActivityNowPlayingBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Re-use the ViewModel from MainActivity — do NOT bind a second service connection
         viewModel = ViewModelProvider(this)[MusicViewModel::class.java]
 
         setupToolbar()
         setupControls()
+        setupSpeedChips()
         observeViewModel()
     }
 
@@ -71,6 +74,14 @@ class NowPlayingActivity : AppCompatActivity() {
         binding.btnPrevious.setOnClickListener { viewModel.playPrevious() }
         binding.btnRepeat.setOnClickListener { viewModel.cycleRepeatMode() }
         binding.btnShuffle.setOnClickListener { viewModel.toggleShuffle() }
+        binding.btnFavourite.setOnClickListener {
+            viewModel.currentSong.value?.let { song ->
+                viewModel.toggleFavourite(song)
+            }
+        }
+        binding.btnEqualizer.setOnClickListener {
+            EqualizerBottomSheet().show(supportFragmentManager, "eq")
+        }
 
         binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
@@ -82,6 +93,32 @@ class NowPlayingActivity : AppCompatActivity() {
                 viewModel.seekTo(sb.progress)
             }
         })
+    }
+
+    private fun setupSpeedChips() {
+        val chipGroup = binding.chipGroupSpeed
+        val currentSpeed = viewModel.playbackSpeed.value ?: 1.0f
+
+        for (speed in speedOptions) {
+            val chip = com.google.android.material.chip.Chip(this).apply {
+                text = "${speed}x"
+                isCheckable = true
+                isChecked = (speed == currentSpeed)
+                setOnClickListener {
+                    viewModel.setPlaybackSpeed(speed)
+                    updateSpeedChips(speed)
+                }
+            }
+            chipGroup.addView(chip)
+        }
+    }
+
+    private fun updateSpeedChips(selectedSpeed: Float) {
+        val chipGroup = binding.chipGroupSpeed
+        for (i in 0 until chipGroup.childCount) {
+            val chip = chipGroup.getChildAt(i) as? com.google.android.material.chip.Chip
+            chip?.isChecked = (chip?.text?.toString() == "${selectedSpeed}x")
+        }
     }
 
     private fun observeViewModel() {
@@ -146,6 +183,16 @@ class NowPlayingActivity : AppCompatActivity() {
                 binding.tvTrackInfo.text = "${idx + 1} / ${queue.size}"
             }
         }
+
+        viewModel.isFavourite.observe(this) { isFav ->
+            binding.btnFavourite.setImageResource(
+                if (isFav) R.drawable.ic_favourite_filled else R.drawable.ic_favourite
+            )
+        }
+
+        viewModel.playbackSpeed.observe(this) { speed ->
+            updateSpeedChips(speed)
+        }
     }
 
     private fun applyPalette(palette: Palette) {
@@ -192,7 +239,6 @@ class NowPlayingActivity : AppCompatActivity() {
         handler.removeCallbacks(positionRunnable)
     }
 
-    // Do NOT call viewModel.unbindService() here — MainActivity owns the service connection
     override fun onDestroy() {
         super.onDestroy()
     }
