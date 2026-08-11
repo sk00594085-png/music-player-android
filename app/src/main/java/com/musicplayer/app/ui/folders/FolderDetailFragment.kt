@@ -5,7 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
+import com.musicplayer.app.MusicPlayerApp
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.musicplayer.app.databinding.FragmentFolderDetailBinding
 import com.musicplayer.app.ui.songs.SongAdapter
@@ -27,7 +27,7 @@ class FolderDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel = ViewModelProvider(requireActivity())[MusicViewModel::class.java]
+        viewModel = (requireActivity().application as MusicPlayerApp).musicViewModel
 
         val folderPath = arguments?.getString("folderPath") ?: return
         val folderName = arguments?.getString("folderName") ?: "Folder"
