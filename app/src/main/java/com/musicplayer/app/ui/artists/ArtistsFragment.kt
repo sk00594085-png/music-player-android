@@ -5,7 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
+import com.musicplayer.app.MusicPlayerApp
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.musicplayer.app.databinding.FragmentArtistsBinding
 import com.musicplayer.app.viewmodel.MusicViewModel
@@ -24,7 +24,7 @@ class ArtistsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val viewModel = ViewModelProvider(requireActivity())[MusicViewModel::class.java]
+        val viewModel = (requireActivity().application as MusicPlayerApp).musicViewModel
 
         val adapter = ArtistAdapter { artist ->
             ArtistDetailFragment.newInstance(artist.name)
