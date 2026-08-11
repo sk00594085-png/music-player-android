@@ -1,12 +1,17 @@
 package com.musicplayer.app.ui.main
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
@@ -14,6 +19,10 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.musicplayer.app.R
 import com.musicplayer.app.databinding.ActivityMainBinding
+import com.musicplayer.app.ui.carmode.CarModeActivity
+import com.musicplayer.app.ui.settings.SettingsActivity
+import com.musicplayer.app.ui.sleeptimer.SleepTimerDialog
+import com.musicplayer.app.utils.AppPreferences
 import com.musicplayer.app.viewmodel.MusicViewModel
 
 class MainActivity : AppCompatActivity() {
@@ -31,9 +40,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Apply saved theme before super.onCreate
+        AppCompatDelegate.setDefaultNightMode(AppPreferences.getThemeMode(this))
+
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        setSupportActionBar(binding.toolbar)
 
         viewModel = ViewModelProvider(this)[MusicViewModel::class.java]
         viewModel.bindService()
@@ -41,6 +55,29 @@ class MainActivity : AppCompatActivity() {
         setupNavigation()
         requestPermissions()
         setupMiniPlayer()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_main, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_sleep_timer -> {
+                SleepTimerDialog().show(supportFragmentManager, "sleep_timer")
+                true
+            }
+            R.id.action_car_mode -> {
+                startActivity(Intent(this, CarModeActivity::class.java))
+                true
+            }
+            R.id.action_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     private fun setupNavigation() {
@@ -64,8 +101,27 @@ class MainActivity : AppCompatActivity() {
         }
         if (needed.isEmpty()) {
             viewModel.loadLibrary()
+            offerResumeLastPosition()
         } else {
             permissionLauncher.launch(needed.toTypedArray())
+        }
+    }
+
+    private fun offerResumeLastPosition() {
+        val (lastIndex, lastPos) = viewModel.getLastPlaybackState()
+        if (lastIndex >= 0 && lastPos > 0) {
+            viewModel.songs.observe(this) { songs ->
+                if (songs.isNotEmpty() && lastIndex < songs.size) {
+                    AlertDialog.Builder(this)
+                        .setTitle(R.string.resume_playback)
+                        .setMessage(R.string.resume_playback_message)
+                        .setPositiveButton(R.string.resume) { _, _ ->
+                            viewModel.resumeLastPosition()
+                        }
+                        .setNegativeButton(R.string.start_fresh, null)
+                        .show()
+                }
+            }
         }
     }
 
@@ -91,7 +147,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.miniPlayer.setOnClickListener {
             startActivity(
-                android.content.Intent(this, com.musicplayer.app.ui.nowplaying.NowPlayingActivity::class.java)
+                Intent(this, com.musicplayer.app.ui.nowplaying.NowPlayingActivity::class.java)
             )
         }
     }
