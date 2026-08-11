@@ -48,6 +48,9 @@ class SongsFragment : Fragment() {
                 val index = list.indexOf(song)
                 if (index >= 0) viewModel.playSongsAt(list, index)
             },
+            onFavouriteClick = { song ->
+                viewModel.toggleFavourite(song)
+            },
             onSongLongClick = { song ->
                 showSongContextMenu(song)
             }
@@ -68,6 +71,10 @@ class SongsFragment : Fragment() {
 
         viewModel.currentSong.observe(viewLifecycleOwner) { song ->
             song?.let { adapter.setActiveSong(it.id) }
+        }
+
+        viewModel.favouriteSongs.observe(viewLifecycleOwner) { favSongs ->
+            adapter.setFavouriteIds(favSongs.map { it.id }.toSet())
         }
 
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
