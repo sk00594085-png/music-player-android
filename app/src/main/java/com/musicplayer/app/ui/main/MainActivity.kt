@@ -17,6 +17,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.musicplayer.app.R
 import com.musicplayer.app.databinding.ActivityMainBinding
 import com.musicplayer.app.ui.carmode.CarModeActivity
@@ -131,6 +133,13 @@ class MainActivity : AppCompatActivity() {
                 binding.miniPlayer.visibility = View.VISIBLE
                 binding.miniPlayerTitle.text = song.displayTitle
                 binding.miniPlayerArtist.text = song.displayArtist
+                Glide.with(this)
+                    .load(song.albumArtUri)
+                    .placeholder(R.drawable.ic_album_art_placeholder)
+                    .error(R.drawable.ic_album_art_placeholder)
+                    .diskCacheStrategy(DiskCacheStrategy.NONE)
+                    .centerCrop()
+                    .into(binding.miniPlayerArt)
             } else {
                 binding.miniPlayer.visibility = View.GONE
             }
@@ -145,6 +154,7 @@ class MainActivity : AppCompatActivity() {
         binding.miniPlayerPlayPause.setOnClickListener { viewModel.togglePlayPause() }
         binding.miniPlayerNext.setOnClickListener { viewModel.playNext() }
 
+        // Tap anywhere on mini player (except buttons) → open Now Playing
         binding.miniPlayer.setOnClickListener {
             startActivity(
                 Intent(this, com.musicplayer.app.ui.nowplaying.NowPlayingActivity::class.java)
