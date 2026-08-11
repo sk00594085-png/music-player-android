@@ -72,11 +72,11 @@ class MainActivity : AppCompatActivity() {
     private fun setupMiniPlayer() {
         viewModel.currentSong.observe(this) { song ->
             if (song != null) {
-                binding.miniPlayer.root.visibility = View.VISIBLE
+                binding.miniPlayer.visibility = View.VISIBLE
                 binding.miniPlayerTitle.text = song.displayTitle
                 binding.miniPlayerArtist.text = song.displayArtist
             } else {
-                binding.miniPlayer.root.visibility = View.GONE
+                binding.miniPlayer.visibility = View.GONE
             }
         }
 
@@ -89,7 +89,7 @@ class MainActivity : AppCompatActivity() {
         binding.miniPlayerPlayPause.setOnClickListener { viewModel.togglePlayPause() }
         binding.miniPlayerNext.setOnClickListener { viewModel.playNext() }
 
-        binding.miniPlayer.root.setOnClickListener {
+        binding.miniPlayer.setOnClickListener {
             startActivity(
                 android.content.Intent(this, com.musicplayer.app.ui.nowplaying.NowPlayingActivity::class.java)
             )
