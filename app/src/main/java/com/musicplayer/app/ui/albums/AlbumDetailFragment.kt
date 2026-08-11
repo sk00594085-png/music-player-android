@@ -15,6 +15,7 @@ class AlbumDetailFragment : BottomSheetDialogFragment() {
 
     private var _binding: FragmentAlbumDetailBinding? = null
     private val binding get() = _binding!!
+    private lateinit var adapter: SongAdapter
 
     companion object {
         private const val ARG_ALBUM = "album_name"
@@ -37,7 +38,7 @@ class AlbumDetailFragment : BottomSheetDialogFragment() {
 
         binding.tvAlbumTitle.text = albumName
 
-        val adapter = SongAdapter { index ->
+        adapter = SongAdapter { index ->
             val list = adapter.currentList
             if (list.isNotEmpty()) {
                 viewModel.playSongsAt(list, index)
@@ -49,10 +50,9 @@ class AlbumDetailFragment : BottomSheetDialogFragment() {
         binding.recyclerSongs.adapter = adapter
 
         viewModel.songs.observe(viewLifecycleOwner) { songs ->
-            val albumSongs = songs.filter {
+            adapter.submitList(songs.filter {
                 it.album.ifBlank { "Unknown Album" } == albumName
-            }
-            adapter.submitList(albumSongs)
+            })
         }
 
         viewModel.currentSong.observe(viewLifecycleOwner) { song ->
