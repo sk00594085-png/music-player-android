@@ -38,9 +38,10 @@ class ArtistDetailFragment : BottomSheetDialogFragment() {
 
         binding.tvArtistTitle.text = artistName
 
-        adapter = SongAdapter { index ->
+        adapter = SongAdapter { song ->
             val list = adapter.currentList
-            if (list.isNotEmpty()) {
+            val index = list.indexOf(song)
+            if (index >= 0) {
                 viewModel.playSongsAt(list, index)
                 dismiss()
             }
