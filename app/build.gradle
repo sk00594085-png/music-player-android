@@ -62,4 +62,7 @@ dependencies {
 
     // Palette – dynamic colours from album art
     implementation 'androidx.palette:palette-ktx:1.0.0'
+
+    // Media session / playback state (MediaSessionCompat, PlaybackStateCompat)
+    implementation 'androidx.media:media:1.7.0'
 }
