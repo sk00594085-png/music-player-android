@@ -34,10 +34,10 @@ class FolderDetailFragment : Fragment() {
 
         binding.folderDetailTitle.text = folderName
 
-        adapter = SongAdapter { index ->
-            val songs = adapter.currentList
-            if (songs.isEmpty()) return@SongAdapter
-            viewModel.playSongsAt(songs, index)
+        adapter = SongAdapter { song ->
+            val list = adapter.currentList
+            val index = list.indexOf(song)
+            if (index >= 0) viewModel.playSongsAt(list, index)
         }
 
         binding.recyclerFolderSongs.layoutManager = LinearLayoutManager(requireContext())
