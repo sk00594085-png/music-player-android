@@ -11,13 +11,13 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.ViewModelProvider
 import androidx.palette.graphics.Palette
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
+import com.musicplayer.app.MusicPlayerApp
 import com.musicplayer.app.R
 import com.musicplayer.app.databinding.ActivityNowPlayingBinding
 import com.musicplayer.app.model.RepeatMode
@@ -28,7 +28,11 @@ import com.musicplayer.app.viewmodel.MusicViewModel
 class NowPlayingActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNowPlayingBinding
-    private lateinit var viewModel: MusicViewModel
+
+    // Share the single app-scoped ViewModel — never create a new binding
+    private val viewModel: MusicViewModel
+        get() = (application as MusicPlayerApp).musicViewModel
+
     private val handler = Handler(Looper.getMainLooper())
     private var seeking = false
     private var receiverRegistered = false
@@ -44,7 +48,11 @@ class NowPlayingActivity : AppCompatActivity() {
 
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
-            updateProgressBar()
+            if (!seeking) {
+                val pos = viewModel.position.value ?: 0
+                binding.seekBar.progress = pos
+                binding.tvCurrentTime.text = formatTime(pos)
+            }
         }
     }
 
@@ -52,9 +60,6 @@ class NowPlayingActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityNowPlayingBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        viewModel = ViewModelProvider(this)[MusicViewModel::class.java]
-        viewModel.bindService()   // connect to the running MusicService
 
         setupToolbar()
         setupControls()
@@ -99,7 +104,6 @@ class NowPlayingActivity : AppCompatActivity() {
     private fun setupSpeedChips() {
         val chipGroup = binding.chipGroupSpeed
         val currentSpeed = viewModel.playbackSpeed.value ?: 1.0f
-
         for (speed in speedOptions) {
             val chip = com.google.android.material.chip.Chip(this).apply {
                 text = "${speed}x"
@@ -123,13 +127,6 @@ class NowPlayingActivity : AppCompatActivity() {
     }
 
     private fun observeViewModel() {
-        // Once the service binds, sync all state immediately
-        viewModel.serviceBound.observe(this) { bound ->
-            if (bound) {
-                viewModel.pollPosition()
-            }
-        }
-
         viewModel.currentSong.observe(this) { song ->
             if (song == null) return@observe
             binding.tvSongTitle.text = song.displayTitle
@@ -163,7 +160,7 @@ class NowPlayingActivity : AppCompatActivity() {
         viewModel.repeatMode.observe(this) { mode ->
             val icon = when (mode) {
                 RepeatMode.NONE, RepeatMode.ALL -> R.drawable.ic_repeat
-                RepeatMode.ONE -> R.drawable.ic_repeat_one
+                RepeatMode.ONE                  -> R.drawable.ic_repeat_one
             }
             binding.btnRepeat.setImageResource(icon)
             binding.btnRepeat.alpha = if (mode == RepeatMode.NONE) 0.4f else 1f
@@ -214,14 +211,6 @@ class NowPlayingActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateProgressBar() {
-        if (!seeking) {
-            val pos = viewModel.position.value ?: 0
-            binding.seekBar.progress = pos
-            binding.tvCurrentTime.text = formatTime(pos)
-        }
-    }
-
     private fun formatTime(ms: Int): String {
         val totalSecs = ms / 1000
         val mins = totalSecs / 60
@@ -247,8 +236,6 @@ class NowPlayingActivity : AppCompatActivity() {
         handler.removeCallbacks(positionRunnable)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        viewModel.unbindService()
-    }
+    // NOTE: No bindService / unbindService here.
+    // The service connection is owned by MusicPlayerApp for the process lifetime.
 }
