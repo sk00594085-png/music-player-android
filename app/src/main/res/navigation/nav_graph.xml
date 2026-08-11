@@ -11,6 +11,21 @@
         android:label="@string/all_songs" />
 
     <fragment
+        android:id="@+id/nav_albums"
+        android:name="com.musicplayer.app.ui.albums.AlbumsFragment"
+        android:label="@string/albums" />
+
+    <fragment
+        android:id="@+id/nav_artists"
+        android:name="com.musicplayer.app.ui.artists.ArtistsFragment"
+        android:label="@string/artists" />
+
+    <fragment
+        android:id="@+id/nav_playlists"
+        android:name="com.musicplayer.app.ui.playlists.PlaylistsFragment"
+        android:label="@string/playlists" />
+
+    <fragment
         android:id="@+id/nav_folders"
         android:name="com.musicplayer.app.ui.folders.FoldersFragment"
         android:label="@string/folders">
