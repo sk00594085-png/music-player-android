@@ -12,7 +12,7 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ViewModelProvider
+import com.musicplayer.app.MusicPlayerApp
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.musicplayer.app.R
 import com.musicplayer.app.databinding.FragmentSongsBinding
@@ -40,7 +40,7 @@ class SongsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel = ViewModelProvider(requireActivity())[MusicViewModel::class.java]
+        viewModel = (requireActivity().application as MusicPlayerApp).musicViewModel
 
         adapter = SongAdapter(
             onSongClick = { song ->
