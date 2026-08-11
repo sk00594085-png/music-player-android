@@ -30,9 +30,10 @@ class FavouritesFragment : BottomSheetDialogFragment() {
 
         binding.tvPlaylistTitle.text = "Favourites"
 
-        adapter = SongAdapter { index ->
+        adapter = SongAdapter { song ->
             val list = adapter.currentList
-            if (list.isNotEmpty()) {
+            val index = list.indexOf(song)
+            if (index >= 0) {
                 viewModel.playSongsAt(list, index)
                 dismiss()
             }
