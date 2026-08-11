@@ -54,6 +54,7 @@ class NowPlayingActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         viewModel = ViewModelProvider(this)[MusicViewModel::class.java]
+        viewModel.bindService()   // connect to the running MusicService
 
         setupToolbar()
         setupControls()
@@ -122,6 +123,13 @@ class NowPlayingActivity : AppCompatActivity() {
     }
 
     private fun observeViewModel() {
+        // Once the service binds, sync all state immediately
+        viewModel.serviceBound.observe(this) { bound ->
+            if (bound) {
+                viewModel.pollPosition()
+            }
+        }
+
         viewModel.currentSong.observe(this) { song ->
             if (song == null) return@observe
             binding.tvSongTitle.text = song.displayTitle
@@ -241,5 +249,6 @@ class NowPlayingActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        viewModel.unbindService()
     }
 }
