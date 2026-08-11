@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/sort_title"    android:title="@string/sort_by_title" />
+    <item android:id="@+id/sort_artist"   android:title="@string/sort_by_artist" />
+    <item android:id="@+id/sort_duration" android:title="@string/sort_by_duration" />
+    <item android:id="@+id/sort_date"     android:title="@string/sort_by_date" />
+    <item android:id="@+id/sort_size"     android:title="@string/sort_by_size" />
+    <item android:id="@+id/sort_toggle_order" android:title="@string/sort_toggle_order" />
+</menu>
