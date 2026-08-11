@@ -6,7 +6,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Navigation host fills the screen -->
+    <!-- App bar with toolbar -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorSurface"
+            app:title="@string/app_name" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Navigation host fills the screen below app bar -->
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/nav_host_fragment"
         android:name="androidx.navigation.fragment.NavHostFragment"
@@ -14,6 +29,7 @@
         android:layout_height="match_parent"
         android:layout_marginBottom="120dp"
         app:defaultNavHost="true"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
         app:navGraph="@navigation/nav_graph" />
 
     <!-- Bottom navigation bar -->
@@ -26,7 +42,7 @@
         app:elevation="8dp"
         app:menu="@menu/bottom_nav_menu" />
 
-    <!-- Mini player sits above the bottom nav — IDs are TOP-LEVEL for ViewBinding -->
+    <!-- Mini player sits above the bottom nav -->
     <LinearLayout
         android:id="@+id/mini_player"
         android:layout_width="match_parent"
