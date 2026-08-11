@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Handler
@@ -14,7 +15,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.palette.graphics.Palette
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
@@ -23,7 +23,6 @@ import com.musicplayer.app.databinding.ActivityNowPlayingBinding
 import com.musicplayer.app.model.RepeatMode
 import com.musicplayer.app.service.MusicService
 import com.musicplayer.app.viewmodel.MusicViewModel
-import android.graphics.Bitmap
 
 class NowPlayingActivity : AppCompatActivity() {
 
@@ -31,6 +30,7 @@ class NowPlayingActivity : AppCompatActivity() {
     private lateinit var viewModel: MusicViewModel
     private val handler = Handler(Looper.getMainLooper())
     private var seeking = false
+    private var receiverRegistered = false
 
     private val positionRunnable = object : Runnable {
         override fun run() {
@@ -41,7 +41,6 @@ class NowPlayingActivity : AppCompatActivity() {
 
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
-            // ViewModel already handles this via its own receiver; just trigger UI sync
             updateProgressBar()
         }
     }
@@ -51,8 +50,8 @@ class NowPlayingActivity : AppCompatActivity() {
         binding = ActivityNowPlayingBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Re-use the ViewModel from MainActivity — do NOT bind a second service connection
         viewModel = ViewModelProvider(this)[MusicViewModel::class.java]
-        viewModel.bindService()
 
         setupToolbar()
         setupControls()
@@ -92,7 +91,6 @@ class NowPlayingActivity : AppCompatActivity() {
             binding.tvArtistName.text = song.displayArtist
             binding.tvAlbumName.text = song.album.ifBlank { "Unknown Album" }
 
-            // Album art with palette-driven background
             Glide.with(this)
                 .asBitmap()
                 .load(song.albumArtUri)
@@ -118,13 +116,12 @@ class NowPlayingActivity : AppCompatActivity() {
         }
 
         viewModel.repeatMode.observe(this) { mode ->
-            val (icon, alpha) = when (mode) {
-                RepeatMode.NONE -> Pair(R.drawable.ic_repeat, 0.4f)
-                RepeatMode.ALL -> Pair(R.drawable.ic_repeat, 1f)
-                RepeatMode.ONE -> Pair(R.drawable.ic_repeat_one, 1f)
+            val icon = when (mode) {
+                RepeatMode.NONE, RepeatMode.ALL -> R.drawable.ic_repeat
+                RepeatMode.ONE -> R.drawable.ic_repeat_one
             }
             binding.btnRepeat.setImageResource(icon)
-            binding.btnRepeat.alpha = alpha
+            binding.btnRepeat.alpha = if (mode == RepeatMode.NONE) 0.4f else 1f
         }
 
         viewModel.shuffleEnabled.observe(this) { shuffle ->
@@ -179,18 +176,24 @@ class NowPlayingActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        registerReceiver(stateReceiver, IntentFilter(MusicService.BROADCAST_STATE))
+        if (!receiverRegistered) {
+            registerReceiver(stateReceiver, IntentFilter(MusicService.BROADCAST_STATE))
+            receiverRegistered = true
+        }
         handler.post(positionRunnable)
     }
 
     override fun onPause() {
         super.onPause()
-        try { unregisterReceiver(stateReceiver) } catch (_: Exception) {}
+        if (receiverRegistered) {
+            try { unregisterReceiver(stateReceiver) } catch (_: Exception) {}
+            receiverRegistered = false
+        }
         handler.removeCallbacks(positionRunnable)
     }
 
+    // Do NOT call viewModel.unbindService() here — MainActivity owns the service connection
     override fun onDestroy() {
         super.onDestroy()
-        viewModel.unbindService()
     }
 }
