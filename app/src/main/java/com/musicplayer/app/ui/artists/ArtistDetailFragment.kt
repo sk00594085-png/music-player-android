@@ -15,6 +15,7 @@ class ArtistDetailFragment : BottomSheetDialogFragment() {
 
     private var _binding: FragmentArtistDetailBinding? = null
     private val binding get() = _binding!!
+    private lateinit var adapter: SongAdapter
 
     companion object {
         private const val ARG_ARTIST = "artist_name"
@@ -37,7 +38,7 @@ class ArtistDetailFragment : BottomSheetDialogFragment() {
 
         binding.tvArtistTitle.text = artistName
 
-        val adapter = SongAdapter { index ->
+        adapter = SongAdapter { index ->
             val list = adapter.currentList
             if (list.isNotEmpty()) {
                 viewModel.playSongsAt(list, index)
