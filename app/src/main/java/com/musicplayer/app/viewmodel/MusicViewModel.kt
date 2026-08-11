@@ -65,6 +65,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _serviceBound = MutableLiveData(false)
     val serviceBound: LiveData<Boolean> = _serviceBound
 
+    // Guard against double bind/unbind
+    private var isBound = false
+    private var receiverRegistered = false
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             musicService = (binder as MusicService.MusicBinder).getService()
@@ -74,6 +78,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         override fun onServiceDisconnected(name: ComponentName) {
             musicService = null
             _serviceBound.value = false
+            isBound = false
         }
     }
 
@@ -81,9 +86,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         override fun onReceive(ctx: Context, intent: Intent) {
             _isPlaying.value = intent.getBooleanExtra(MusicService.EXTRA_IS_PLAYING, false)
             _currentIndex.value = intent.getIntExtra(MusicService.EXTRA_CURRENT_INDEX, -1)
-            _repeatMode.value = RepeatMode.valueOf(
-                intent.getStringExtra(MusicService.EXTRA_REPEAT_MODE) ?: RepeatMode.NONE.name
-            )
+            _repeatMode.value = try {
+                RepeatMode.valueOf(
+                    intent.getStringExtra(MusicService.EXTRA_REPEAT_MODE) ?: RepeatMode.NONE.name
+                )
+            } catch (_: Exception) { RepeatMode.NONE }
             _shuffleEnabled.value = intent.getBooleanExtra(MusicService.EXTRA_IS_SHUFFLE, false)
             _duration.value = intent.getIntExtra(MusicService.EXTRA_DURATION, 0)
             _position.value = intent.getIntExtra(MusicService.EXTRA_POSITION, 0)
@@ -104,8 +111,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun loadLibrary() {
         viewModelScope.launch {
             _isLoading.value = true
-            _songs.value = repo.getAllSongs()
-            _folders.value = repo.getFolders()
+            try {
+                _songs.value = repo.getAllSongs()
+                _folders.value = repo.getFolders()
+            } catch (_: Exception) {
+                _songs.value = emptyList()
+                _folders.value = emptyList()
+            }
             _isLoading.value = false
         }
     }
@@ -113,18 +125,32 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // ── Service binding ───────────────────────────────────────────────────
 
     fun bindService() {
+        if (isBound) return   // prevent double-bind
         val ctx = getApplication<Application>()
-        val intent = Intent(ctx, MusicService::class.java)
-        ctx.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-        ctx.registerReceiver(stateReceiver, IntentFilter(MusicService.BROADCAST_STATE))
+        try {
+            val intent = Intent(ctx, MusicService::class.java)
+            ctx.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+            isBound = true
+        } catch (_: Exception) {}
+
+        if (!receiverRegistered) {
+            try {
+                ctx.registerReceiver(stateReceiver, IntentFilter(MusicService.BROADCAST_STATE))
+                receiverRegistered = true
+            } catch (_: Exception) {}
+        }
     }
 
     fun unbindService() {
         val ctx = getApplication<Application>()
-        try {
-            ctx.unbindService(serviceConnection)
-            ctx.unregisterReceiver(stateReceiver)
-        } catch (_: Exception) {}
+        if (receiverRegistered) {
+            try { ctx.unregisterReceiver(stateReceiver) } catch (_: Exception) {}
+            receiverRegistered = false
+        }
+        if (isBound) {
+            try { ctx.unbindService(serviceConnection) } catch (_: Exception) {}
+            isBound = false
+        }
         musicService = null
     }
 
