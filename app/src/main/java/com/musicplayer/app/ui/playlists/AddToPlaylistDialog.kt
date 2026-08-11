@@ -4,7 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.lifecycle.ViewModelProvider
+import com.musicplayer.app.MusicPlayerApp
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.musicplayer.app.databinding.DialogAddToPlaylistBinding
@@ -42,7 +42,7 @@ class AddToPlaylistDialog : BottomSheetDialogFragment() {
         val songId = arguments?.getLong(ARG_SONG_ID) ?: return
         val songPath = arguments?.getString(ARG_SONG_PATH) ?: return
         val songTitle = arguments?.getString(ARG_SONG_TITLE) ?: ""
-        val viewModel = ViewModelProvider(requireActivity())[MusicViewModel::class.java]
+        val viewModel = (requireActivity().application as MusicPlayerApp).musicViewModel
 
         binding.tvAddToPlaylistTitle.text = "Add \"$songTitle\" to playlist"
 
