@@ -30,14 +30,14 @@ class RecentlyPlayedFragment : BottomSheetDialogFragment() {
 
         binding.tvPlaylistTitle.text = "Recently Played"
 
-        adapter = SongAdapter { song ->
+        adapter = SongAdapter(onSongClick = { song ->
             val list = adapter.currentList
             val index = list.indexOf(song)
             if (index >= 0) {
                 viewModel.playSongsAt(list, index)
                 dismiss()
             }
-        }
+        })
 
         binding.recyclerSongs.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerSongs.adapter = adapter
