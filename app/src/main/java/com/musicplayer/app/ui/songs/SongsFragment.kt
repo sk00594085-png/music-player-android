@@ -43,10 +43,10 @@ class SongsFragment : Fragment() {
         viewModel = ViewModelProvider(requireActivity())[MusicViewModel::class.java]
 
         adapter = SongAdapter(
-            onSongClick = { index ->
-                val filteredSongs = adapter.currentList
-                if (filteredSongs.isEmpty()) return@SongAdapter
-                viewModel.playSongsAt(filteredSongs, index)
+            onSongClick = { song ->
+                val list = adapter.currentList
+                val index = list.indexOf(song)
+                if (index >= 0) viewModel.playSongsAt(list, index)
             },
             onSongLongClick = { song ->
                 showSongContextMenu(song)
