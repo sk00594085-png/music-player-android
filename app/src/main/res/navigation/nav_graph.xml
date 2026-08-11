@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_songs">
+
+    <fragment
+        android:id="@+id/nav_songs"
+        android:name="com.musicplayer.app.ui.songs.SongsFragment"
+        android:label="@string/all_songs" />
+
+    <fragment
+        android:id="@+id/nav_folders"
+        android:name="com.musicplayer.app.ui.folders.FoldersFragment"
+        android:label="@string/folders">
+
+        <action
+            android:id="@+id/action_folders_to_folder_detail"
+            app:destination="@id/nav_folder_detail" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/nav_folder_detail"
+        android:name="com.musicplayer.app.ui.folders.FolderDetailFragment"
+        android:label="Folder">
+
+        <argument
+            android:name="folderPath"
+            app:argType="string" />
+
+        <argument
+            android:name="folderName"
+            app:argType="string" />
+
+    </fragment>
+
+</navigation>
