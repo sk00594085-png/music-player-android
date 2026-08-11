@@ -6,6 +6,10 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
+    <!-- Write to Downloads for backup/export -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <!-- Foreground service & notification -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -45,6 +49,16 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- Settings Activity -->
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false" />
+
+        <!-- Car Mode Activity -->
+        <activity
+            android:name=".ui.carmode.CarModeActivity"
+            android:exported="false" />
+
         <!-- Music Playback Service -->
         <service
             android:name=".service.MusicService"
@@ -59,6 +73,28 @@
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
+        </receiver>
+
+        <!-- Bluetooth auto-play receiver -->
+        <receiver
+            android:name=".service.BluetoothAutoPlayReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Home Screen Widget -->
+        <receiver
+            android:name=".widget.MusicPlayerWidget"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/music_player_widget_info" />
         </receiver>
 
     </application>
