@@ -12,8 +12,12 @@ import com.musicplayer.app.R
 import com.musicplayer.app.databinding.ItemSongBinding
 import com.musicplayer.app.model.Song
 
+/**
+ * Adapter for song lists.
+ * onSongClick receives the clicked Song — callers find the index themselves via currentList.
+ */
 class SongAdapter(
-    private val onSongClick: (Int) -> Unit,
+    private val onSongClick: (Song) -> Unit,
     private val onSongLongClick: ((Song) -> Unit)? = null
 ) : ListAdapter<Song, SongAdapter.SongViewHolder>(DIFF) {
 
@@ -33,7 +37,7 @@ class SongAdapter(
     }
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
-        holder.bind(getItem(position), position, activeSongId)
+        holder.bind(getItem(position), activeSongId)
     }
 
     inner class SongViewHolder(
@@ -41,12 +45,11 @@ class SongAdapter(
         private val ctx: Context
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(song: Song, position: Int, activeId: Long) {
+        fun bind(song: Song, activeId: Long) {
             binding.songTitle.text = song.displayTitle
             binding.songArtist.text = song.displayArtist
             binding.songDuration.text = song.durationFormatted
 
-            // Album art
             Glide.with(ctx)
                 .load(song.albumArtUri)
                 .placeholder(R.drawable.ic_album_art_placeholder)
@@ -55,12 +58,11 @@ class SongAdapter(
                 .centerCrop()
                 .into(binding.songArt)
 
-            // Highlight active track
             binding.root.isActivated = (song.id == activeId)
             binding.nowPlayingIndicator.visibility =
                 if (song.id == activeId) android.view.View.VISIBLE else android.view.View.GONE
 
-            binding.root.setOnClickListener { onSongClick(position) }
+            binding.root.setOnClickListener { onSongClick(song) }
             binding.root.setOnLongClickListener {
                 onSongLongClick?.invoke(song)
                 true
