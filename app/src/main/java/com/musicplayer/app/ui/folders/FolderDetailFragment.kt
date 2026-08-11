@@ -34,11 +34,11 @@ class FolderDetailFragment : Fragment() {
 
         binding.folderDetailTitle.text = folderName
 
-        adapter = SongAdapter { song ->
+        adapter = SongAdapter(onSongClick = { song ->
             val list = adapter.currentList
             val index = list.indexOf(song)
             if (index >= 0) viewModel.playSongsAt(list, index)
-        }
+        })
 
         binding.recyclerFolderSongs.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerFolderSongs.adapter = adapter
